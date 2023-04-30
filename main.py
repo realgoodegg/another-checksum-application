@@ -70,7 +70,7 @@ class MainUIFrame(wx.Frame):
         self.progress_bar = wx.Gauge(
             panel,
             range=100,
-            size=(250, 25),
+            size=(250, 35),
             style=wx.GA_HORIZONTAL | wx.GA_SMOOTH | wx.GA_TEXT,
         )
 
@@ -78,28 +78,32 @@ class MainUIFrame(wx.Frame):
 
         self.source_layout = wx.BoxSizer(wx.HORIZONTAL)
         self.source_layout.Add(
-            self.source_location, 1, wx.LEFT | wx.RIGHT | wx.EXPAND, 2
+            self.source_location, 1, wx.TOP | wx.LEFT | wx.RIGHT | wx.EXPAND, 4
         )
         self.source_layout.Add(
-            self.refresh_source_button, 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 1
+            self.refresh_source_button, 0, wx.TOP | wx.LEFT | wx.RIGHT | wx.EXPAND, 4
         )
 
         self.selection_layout = wx.BoxSizer(wx.HORIZONTAL)
         self.selection_layout.Add(
-            self.select_button, 1, wx.LEFT | wx.RIGHT | wx.EXPAND, 2
+            self.set_source_button, 1, wx.TOP | wx.LEFT | wx.RIGHT | wx.EXPAND, 4
         )
         self.selection_layout.Add(
-            self.clear_button, 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 2
+            self.select_button, 0, wx.TOP | wx.LEFT | wx.RIGHT | wx.EXPAND, 4
+        )
+        self.selection_layout.Add(
+            self.clear_button, 0, wx.TOP | wx.LEFT | wx.RIGHT | wx.EXPAND, 4
         )
 
         # Main vertical layout for the UI elements
         self.vertical_layout = wx.BoxSizer(wx.VERTICAL)
-        self.vertical_layout.Add(self.set_source_button, 0, wx.ALL | wx.EXPAND, 5)
-        self.vertical_layout.Add(self.source_layout, 0, wx.ALL | wx.EXPAND, 5)
         self.vertical_layout.Add(self.selection_layout, 1, wx.ALL | wx.EXPAND, 5)
-        self.vertical_layout.Add(self.source_list, 1, wx.ALL | wx.EXPAND, 5)
-        self.vertical_layout.Add(self.generate_button, 0, wx.ALL | wx.EXPAND, 5)
-        self.vertical_layout.Add(self.progress_bar, 0, wx.ALL | wx.EXPAND, 8)
+        self.vertical_layout.Add(self.source_layout, 0, wx.ALL | wx.EXPAND, 5)
+        self.vertical_layout.Add(self.source_list, 1, wx.ALL | wx.EXPAND, 8)
+        self.vertical_layout.Add(self.generate_button, 0, wx.ALL | wx.EXPAND, 8)
+        self.vertical_layout.Add(
+            self.progress_bar, 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 25
+        )
 
         panel.SetSizerAndFit(self.vertical_layout)
 
@@ -198,22 +202,22 @@ class MainUIFrame(wx.Frame):
         # Update the status light column colour
         self.source_list.SetItem(file_index, column=2, label=status)
 
-    def update_progress_bar(self, max_value, file_index):
+    def update_progress_bar(self, current_item, max_value, file_index):
         # Update the progress bar and status bar with the current file being processed
-        self.progress_bar.Range = max_value
-        for i in range(max_value):
-            current_item = i + 1
-            percent = int((current_item / max_value) * 100)
-            self.progress_bar.SetValue(percent)
+        percent = int((current_item / max_value) * 100)
+        self.progress_bar.SetValue(percent)
         self.status_report.SetStatusText(
             f"{current_item} of {max_value} files processed"
         )
-        if current_item == max_value:
+        if percent == 100:
+            self.status_report.SetStatusText(
+                f"{current_item} of {max_value} files processed"
+            )
             self.set_source_button.Enable(True)
             self.refresh_source_button.Enable(True)
 
-    def on_generate_complete(self, max_value, file_index, file_data):
-        # Run file hashing service adn call list view update and progress bar update when complete
+    def on_generate_complete(self, current_item, max_value, file_index, file_data):
+        # Run file hashing service and call list view update and progress bar update when complete
         self.set_source_button.Enable(False)
         self.refresh_source_button.Enable(False)
         self.select_button.Enable(False)
@@ -224,10 +228,10 @@ class MainUIFrame(wx.Frame):
             self.fhs.generate_hash(file_data)
             wx.CallAfter(self.insert_list_view, file_index, file_data)
             wx.CallAfter(self.update_status_colour, file_index, self.green)
-            wx.CallAfter(self.update_progress_bar, max_value, file_index)
+            wx.CallAfter(self.update_progress_bar, current_item, max_value, file_index)
         else:
-            wx.CallAfter(self.update_progress_bar, max_value, file_index)
             wx.CallAfter(self.update_status_colour, file_index, self.orange)
+            wx.CallAfter(self.update_progress_bar, current_item, max_value, file_index)
 
         self.selected_items.clear()
 
@@ -258,14 +262,24 @@ class MainUIFrame(wx.Frame):
             self.generate_button.Enable(False)
 
         elif button_label == "Generate":
+            self.progress_bar.SetValue(0)
             self.status_report.SetStatusText("Generating checksums...")
             if len(self.selected_items) > 0:
-                max_value = len(self.selected_items)
-                print(max_value)
-                for index in self.selected_items:
+                max_value = len(
+                    self.selected_items
+                )  # set the item range for the progress bar
+                current_item = 0  # set item number variable to update progress bar
+                for index in sorted(self.selected_items):
+                    current_item += (
+                        1  # increment with each item to update the progress bar
+                    )
                     file_data = self.fhs.file_data_list[index]
                     thread_pool_executor.submit(
-                        self.on_generate_complete, max_value, index, file_data
+                        self.on_generate_complete,
+                        current_item,
+                        max_value,
+                        index,
+                        file_data,
                     )
             else:
                 pass

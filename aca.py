@@ -3,7 +3,7 @@ another checksum application (aca)
 author: Thomas Luke Ruane
 github repo: https://github.com/realgoodegg/another-checksum-application
 version: 1.1.0
-last modified: 2023-10-21
+last modified: 2023-11-23
 
 """
 
@@ -19,15 +19,28 @@ import subprocess
 import pyperclip
 from datetime import timedelta
 
+
 ## set up logging
-log_file_location = os.path.join(os.getcwd(), "logs")
+def initialise_logging():
+    try:
+        if not os.path.isdir("~/Documents/aca"):
+            os.mkdir(os.path.expanduser("~/Documents/aca"))
+    except OSError:
+        pass
 
-if not os.path.isdir(log_file_location):
-    os.mkdir("logs")
+    log_file_location = os.path.expanduser("~/Documents/aca/logs")
 
+    if not os.path.isdir(log_file_location):
+        os.mkdir(log_file_location)
+    else:
+        pass
+
+    return log_file_location
+
+
+log_file_location = initialise_logging()
 log_timestamp = time.strftime("%Y%m%d%H%M%S_aca.log")
 log_write = os.path.join(log_file_location, log_timestamp)
-
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 formatter = logging.Formatter("%(asctime)s:%(module)s:%(levelname)s:%(message)s")

@@ -13,6 +13,7 @@ class FileHashingService:
         self.get_source_location = get_source_location
         self.hash_verified = None
         self.checksum_algorithm = "md5"
+        self.empty_state = "/"
 
     # Get the list of files in the source directory
     def get_file_list(self):
@@ -28,7 +29,7 @@ class FileHashingService:
                 with open(f"{file_path}.md5", "r") as f:
                     file_hash = f.read(32)
             else:
-                file_hash = "…"
+                file_hash = self.empty_state
 
             file_data = {"filename": file_base, "hash": file_hash}
             self.file_data_list.append(file_data)

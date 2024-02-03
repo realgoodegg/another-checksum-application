@@ -1,5 +1,3 @@
-# aca
-
 ![aca icon](/readme_images/128_icon.png)
 
 **aca** is Another Checksum Application
@@ -21,7 +19,7 @@ It requires the following additional Python libraries:
 * [pypubsub](https://github.com/schollii/pypubsub)
 * [pyperclip](https://github.com/asweigart/pyperclip)
 
-A executable app is available to download in the Release section, otherwise the app can be compiled with [Pyinstaller](https://pyinstaller.org/en/stable/):
+An executable app is available to download in the [Release](https://github.com/realgoodegg/another-checksum-application/releases/tag/v1.0.0) section, otherwise the app can be compiled with [Pyinstaller](https://pyinstaller.org/en/stable/):
 
 `pyinstaller --onefile --windowed --collect-submodules filehashingservice.py --icon aca_icon.icns --name "aca" aca.py`
 

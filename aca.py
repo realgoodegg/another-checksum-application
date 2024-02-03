@@ -6,6 +6,7 @@ version: 1.1.0
 last modified: 2024-01-04
 
 """
+
 import wx
 import logging
 import time
@@ -92,8 +93,8 @@ class AcaInterface(wx.Panel):
         self.is_dark_mode = (
             wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOW).GetLuminance() < 1
         )  # detect system dark mode to adjust colour scheme
-        self.get_source_location = None
-        self.get_destination_location = None
+        self.get_source_location = os.getcwd()
+        self.get_destination_location = os.getcwd()
         self.column_no = None
         self.pass_status = "  ○"
         self.ignore_status = "  -"
@@ -306,7 +307,10 @@ class AcaInterface(wx.Panel):
         self.source_location.Clear()
         self.ui_file_list.DeleteAllItems()
         with wx.DirDialog(
-            self, "Choose a directory:", style=wx.DD_DEFAULT_STYLE
+            self,
+            "Choose a directory:",
+            defaultPath=self.get_source_location,
+            style=wx.DD_DEFAULT_STYLE,
         ) as dialog:
             if dialog.ShowModal() == wx.ID_OK:
                 self.get_source_location = dialog.GetPath()
@@ -384,7 +388,10 @@ class AcaInterface(wx.Panel):
         self.destination_location.Clear()
 
         with wx.DirDialog(
-            self, "Choose a directory:", style=wx.DD_DEFAULT_STYLE
+            self,
+            "Choose a directory:",
+            defaultPath=self.get_destination_location,
+            style=wx.DD_DEFAULT_STYLE,
         ) as dialog:
             if dialog.ShowModal() == wx.ID_OK:
                 self.get_destination_location = dialog.GetPath()

@@ -2,4 +2,8 @@
 **/.venv
 **/build
 **/dist
+**/releases
 *.spec 
+*.DS_Store
+*aca_icon.ico
+*aca_windows.py

@@ -3,7 +3,7 @@ another checksum application (aca)
 author: Thomas Luke Ruane
 github repo: https://github.com/realgoodegg/another-checksum-application
 version: 1.1.0
-last modified: 2024-01-04
+last modified: 2024-02-15
 
 """
 
@@ -93,12 +93,12 @@ class AcaInterface(wx.Panel):
         self.is_dark_mode = (
             wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOW).GetLuminance() < 1
         )  # detect system dark mode to adjust colour scheme
-        self.get_source_location = os.getcwd()
-        self.get_destination_location = os.getcwd()
+        self.selected_source_location = os.getcwd()
+        self.selected_destination_location = os.getcwd()
         self.column_no = None
-        self.pass_status = "  ○"
-        self.ignore_status = "  -"
-        self.fail_status = "  X"
+        self.pass_status = "  \u2B58" # pass symbol "○"
+        self.ignore_status = "  \u002D" # ignore symbol "-"
+        self.fail_status = "  \u0058" # fail symbol "X"
         self.selected_items = []  # List of selected items in the ui_file_list
         self.progress_bar_division = 1
         self.start_time = None
@@ -118,14 +118,17 @@ class AcaInterface(wx.Panel):
 
         ### aca interface elements
         self.set_source_button = wx.Button(self, label="Select Source Files")
+        self.source_location = wx.TextCtrl(self, style=wx.TE_PROCESS_ENTER)
+        self.source_location.Bind(wx.EVT_TEXT_ENTER, self.enter_source)
+
         self.refresh_state_button = wx.Button(self, label="↻")
-        self.source_location = wx.TextCtrl(self, style=wx.TE_READONLY)
 
         self.set_source_button.Bind(wx.EVT_BUTTON, self.set_source_directory)
         self.refresh_state_button.Bind(wx.EVT_BUTTON, self.on_button_press)
 
         self.set_destination_button = wx.Button(self, label="Select Destination ")
-        self.destination_location = wx.TextCtrl(self, style=wx.TE_READONLY)
+        self.destination_location = wx.TextCtrl(self, style=wx.TE_PROCESS_ENTER)
+        self.destination_location.Bind(wx.EVT_TEXT_ENTER, self.enter_destination)
 
         self.set_destination_button.Bind(wx.EVT_BUTTON, self.set_destination_location)
 
@@ -134,6 +137,9 @@ class AcaInterface(wx.Panel):
 
         self.select_all_button.Bind(wx.EVT_BUTTON, self.on_button_press)
         self.clear_selected_button.Bind(wx.EVT_BUTTON, self.on_button_press)
+
+        self.sort_button = wx.Button(self, -1, "\u21C5", size=(25, 50))
+        self.sort_button.Bind(wx.EVT_BUTTON, self.on_sort_click)
 
         ### aca interface central file list
         self.ui_file_list = wx.ListCtrl(
@@ -196,8 +202,9 @@ class AcaInterface(wx.Panel):
             self.select_all_button, 1, wx.TOP | wx.BOTTOM | wx.RIGHT | wx.EXPAND, 8
         )
         self.selection_layout.Add(
-            self.clear_selected_button, 1, wx.TOP | wx.BOTTOM | wx.EXPAND, 8
+            self.clear_selected_button, 1, wx.TOP | wx.BOTTOM | wx.RIGHT | wx.EXPAND, 8
         )
+        self.selection_layout.Add(self.sort_button, 0, wx.TOP | wx.BOTTOM | wx.EXPAND, 8)
 
         self.destination_layout = wx.BoxSizer(wx.HORIZONTAL)
         self.destination_layout.Add(
@@ -224,6 +231,9 @@ class AcaInterface(wx.Panel):
         self.progress_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.progress_sizer.Add(self.progress_bar, 1, wx.ALL | wx.EXPAND, 15)
 
+        self.process_spacer = wx.BoxSizer(wx.HORIZONTAL)
+        self.process_spacer.Add(self.process_buttons, 1, wx.TOP, 15) # add spacer between process buttons and listctrl
+
         ### aca vertial layout stack
         self.aca_vertical_stack = wx.BoxSizer(wx.VERTICAL)
         self.aca_vertical_stack.Add(
@@ -231,7 +241,7 @@ class AcaInterface(wx.Panel):
         )
         self.aca_vertical_stack.Add(self.ui_file_list, 1, wx.ALL | wx.EXPAND, 8)
         self.aca_vertical_stack.Add(
-            self.process_buttons, 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 60
+            self.process_spacer, 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 60
         )
         self.aca_vertical_stack.Add(
             self.progress_sizer, 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 100
@@ -266,11 +276,12 @@ class AcaInterface(wx.Panel):
 
         self.select_all_button.Enable(False)
         self.clear_selected_button.Enable(False)
+        self.sort_button.Enable(False)
         self.generate_button.Enable(False)
         self.copy_button.Enable(False)
         self.verify_button.Enable(False)
 
-        if self.get_destination_location != None:
+        if self.selected_destination_location != None:
             self.set_destination_button.Enable(True)
 
     ### Disable buttons during operations
@@ -280,6 +291,7 @@ class AcaInterface(wx.Panel):
         self.refresh_state_button.Enable(False)
         self.select_all_button.Enable(False)
         self.clear_selected_button.Enable(False)
+        self.sort_button.Enable(False)
         self.generate_button.Enable(False)
         self.copy_button.Enable(False)
         self.verify_button.Enable(False)
@@ -291,12 +303,61 @@ class AcaInterface(wx.Panel):
         self.refresh_state_button.Enable(True)
         self.select_all_button.Enable(True)
         self.clear_selected_button.Enable(True)
+        self.sort_button.Enable(True)
         self.generate_button.Enable(True)
         self.verify_button.Enable(True)
 
-        if self.get_destination_location != None:
+        if self.selected_destination_location != None and os.path.exists(self.selected_destination_location):
             self.copy_button.Enable(True)
 
+    def enter_source(self, event):
+        self.capture_source_location()
+
+    def enter_destination(self, event):
+        self.capture_destination_location()
+
+    ### capture the directory from the source_location textctrl
+    def capture_source_location(self):
+        self.selected_source_location = self.source_location.GetValue()
+        if os.path.exists(self.selected_source_location):
+
+            ### call the filehashingservice and pass the source directory to it
+            self.fhs = filehashingservice.FileHashingService(self.selected_source_location)
+
+            ### publisher to send source location to Report page
+            pub.sendMessage(
+                "source_report_update",
+                data=self.selected_source_location,
+            )
+            ### Get the file list from the get_file_list method and populate the list view
+            self.fhs.get_file_list()
+            self.populate_ui_file_list_view()
+        else:
+            self.ui_file_list.DeleteAllItems()
+            self.selected_items.clear()
+
+            pub.sendMessage(
+                "status_message_update",
+                message="Source directory does not exist",
+                column=0,
+            )
+    
+    def capture_destination_location(self):
+        self.selected_destination_location = self.destination_location.GetValue()
+        if os.path.exists(self.selected_destination_location):
+            self.enable_buttons()
+            
+            pub.sendMessage(
+                "destination_report_update", data=self.selected_destination_location
+            )
+
+        else:
+            pub.sendMessage(
+                "status_message_update",
+                message="Destination directory does not exist",
+                column=0,
+            )
+        
     ### open the source location dialog for the user to select and set
     def set_source_directory(self, event):
         ### clear previous status reports and reset the progress bar
@@ -309,27 +370,14 @@ class AcaInterface(wx.Panel):
         with wx.DirDialog(
             self,
             "Choose a directory:",
-            defaultPath=self.get_source_location,
+            defaultPath=self.selected_source_location,
             style=wx.DD_DEFAULT_STYLE,
         ) as dialog:
             if dialog.ShowModal() == wx.ID_OK:
-                self.get_source_location = dialog.GetPath()
-                self.source_location.write(self.get_source_location)
+                self.selected_source_location = dialog.GetPath()
+                self.source_location.write(self.selected_source_location)
 
-                ### call the filehashingservice and pass the source directory to it
-                self.fhs = filehashingservice.FileHashingService(
-                    self.get_source_location
-                )
-
-                ### publisher to send source location to Report page
-                pub.sendMessage(
-                    "source_report_update",
-                    data=self.get_source_location,
-                )
-                ### Get the file list from the get_file_list method and populate the list view
-                self.fhs.get_file_list()
-                self.populate_ui_file_list_view()
-
+                self.capture_source_location()
             else:
                 pub.sendMessage(
                     "status_message_update", message="No Directory Set", column=0
@@ -382,6 +430,57 @@ class AcaInterface(wx.Panel):
                 message="There are no files in the directory ¯\_(ツ)_/¯",
                 column=0,
             )
+    
+    def sort_list_processor(self, sorted_list_type):
+        self.fhs.file_data_list = sorted_list_type # update file_data_list with sorted list
+        self.ui_file_list.DeleteAllItems()
+        for file_index, file_data in enumerate(sorted_list_type, start=0):
+            self.ui_file_list.InsertItem(file_index, file_data["filename"])
+            self.set_item_labels(file_index, file_data)
+            self.ui_list_row_colour(file_index)
+    
+    ### list sorting functions
+    def on_alpha_sort(self, event):
+        self.selected_items.clear()
+        alpha_sort = sorted(self.fhs.file_data_list, key=lambda x: os.path.basename(x["filename"]).lower())
+        self.sort_list_processor(alpha_sort)
+    
+    def on_reverse_sort(self, event):
+        self.selected_items.clear()
+        reverse_sort = sorted(self.fhs.file_data_list, key=lambda x: os.path.basename(x["filename"]).lower(), reverse=True)
+        self.sort_list_processor(reverse_sort)
+
+    def on_format_sort(self, event):
+        self.selected_items.clear()
+        format_sort = sorted(self.fhs.file_data_list, key=lambda x: os.path.splitext(x["filename"])[1].lower())
+        self.sort_list_processor(format_sort)
+
+    def on_date_sort(self, event):
+        self.selected_items.clear()
+        date_sort = sorted(self.fhs.file_data_list, key=lambda x: x["mod_date"], reverse=True)
+        self.sort_list_processor(date_sort)
+
+    def on_date_reverse_sort(self, event):
+        self.selected_items.clear()
+        date_reverse_sort = sorted(self.fhs.file_data_list, key=lambda x: x["mod_date"])
+        self.sort_list_processor(date_reverse_sort)
+    
+    def on_sort_click(self, event):
+        self.menu = wx.Menu(title="Sort By:")
+        item1 = self.menu.Append(wx.ID_ANY, "A to Z", kind=wx.ITEM_CHECK)
+        item2 = self.menu.Append(wx.ID_ANY, "Z to A", kind=wx.ITEM_CHECK)
+        item3 = self.menu.Append(wx.ID_ANY, "Format Type", kind=wx.ITEM_CHECK)
+        item4 = self.menu.Append(wx.ID_ANY, "Date Modified (New to Old)", kind=wx.ITEM_CHECK)
+        item5 = self.menu.Append(wx.ID_ANY, "Date Modified (Old to New)", kind=wx.ITEM_CHECK)
+
+        self.Bind(wx.EVT_MENU, self.on_alpha_sort, id=item1.GetId())
+        self.Bind(wx.EVT_MENU, self.on_reverse_sort, id=item2.GetId())
+        self.Bind(wx.EVT_MENU, self.on_format_sort, id=item3.GetId())
+        self.Bind(wx.EVT_MENU, self.on_date_sort, id=item4.GetId())
+        self.Bind(wx.EVT_MENU, self.on_date_reverse_sort, id=item5.GetId())
+
+        self.PopupMenu(self.menu)
+        self.menu.Destroy()
 
     ### open the destination location dialog for the user to select and set
     def set_destination_location(self, event):
@@ -390,30 +489,19 @@ class AcaInterface(wx.Panel):
         with wx.DirDialog(
             self,
             "Choose a directory:",
-            defaultPath=self.get_destination_location,
+            defaultPath=self.selected_destination_location,
             style=wx.DD_DEFAULT_STYLE,
         ) as dialog:
             if dialog.ShowModal() == wx.ID_OK:
-                self.get_destination_location = dialog.GetPath()
-                self.destination_location.write(self.get_destination_location)
+                self.selected_destination_location = dialog.GetPath()
+                self.destination_location.write(self.selected_destination_location)
 
-                ### publisher sends destination location to the Report page
-                pub.sendMessage(
-                    "destination_report_update", data=self.get_destination_location
-                )
-
-                self.enable_buttons()
-
-            else:
-                pub.sendMessage(
-                    "status_message_update", message="No Copy Location Set", column=0
-                )
+                self.capture_destination_location()
 
     ### add selected item in ui_file_list to selected_items list for processing
     def ui_file_list_item_selected(self, event):
         index = event.GetIndex()
         data = self.ui_file_list.GetItem(index, 1).GetText()
-
         if index not in self.selected_items:
             self.selected_items.append(index)
 
@@ -517,7 +605,7 @@ class AcaInterface(wx.Panel):
     ### run filehashingservice to generate file checksums
     def on_generate(self, current_item, max_value, file_index, file_data):
         self.column_no = 2
-
+        print(file_data)
         if file_data["hash"] == self.fhs.empty_state:
             self.fhs.generate_hash(file_data)
             wx.CallAfter(self.insert_list_view, file_index, file_data)
@@ -597,21 +685,21 @@ class AcaInterface(wx.Panel):
         ### service to copy files
         self.column_no = 3
         file_destination_check = os.path.join(
-            self.get_destination_location, file_data["filename"]
+            self.selected_destination_location, file_data["filename"]
         )
 
         ### check if destination is still available before copy
-        if not os.path.exists(self.get_destination_location):
+        if not os.path.exists(self.selected_destination_location):
             pub.sendMessage(
                 "status_message_update",
-                message=f"{self.get_destination_location} not available",
+                message=f"{self.selected_destination_location} not available",
                 column=0,
             )
             wx.CallAfter(
                 self.update_status, file_index, self.column_no, self.fail_status
             )
             logger.critical(
-                f"{self.get_destination_location}, not available, FAILED copy"
+                f"{self.selected_destination_location}, not available, FAILED copy"
             )
             self.copy_fail("copy_report_update", data=file_data["filename"])
 
@@ -628,7 +716,7 @@ class AcaInterface(wx.Panel):
             )
 
             logger.warning(
-                f"{file_data['filename']}, exists in {self.get_destination_location}, skipped copy"
+                f"{file_data['filename']}, exists in {self.selected_destination_location}, skipped copy"
             )
             self.copy_skip.append(file_data["filename"])
 
@@ -639,7 +727,7 @@ class AcaInterface(wx.Panel):
                     max_value,
                     file_index,
                     file_data,
-                    self.get_destination_location,
+                    self.selected_destination_location,
                 )
             else:
                 ### skips verification if file in destination has no pre-existing checksum file
@@ -648,18 +736,18 @@ class AcaInterface(wx.Panel):
                     self.update_status, file_index, self.column_no, self.ignore_status
                 )
                 logger.warning(
-                    f"{file_data['filename']}, has no checksum in {self.get_destination_location}, skipped verify"
+                    f"{file_data['filename']}, has no checksum in {self.selected_destination_location}, skipped verify"
                 )
                 self.verify_skip.append(file_data["filename"])
 
         else:
             ### service to copy file if not in destination
-            self.fhs.copy_file(file_data, self.get_destination_location)
+            self.fhs.copy_file(file_data, self.selected_destination_location)
             wx.CallAfter(
                 self.update_status, file_index, self.column_no, self.pass_status
             )
             logger.info(
-                f"{file_data['filename']}, source: {self.get_source_location}, destination: {self.get_destination_location}, successfully copied"
+                f"{file_data['filename']}, source: {self.selected_source_location}, destination: {self.selected_destination_location}, successfully copied"
             )
             self.copy_complete.append(file_data["filename"])
 
@@ -669,7 +757,7 @@ class AcaInterface(wx.Panel):
                 max_value,
                 file_index,
                 file_data,
-                self.get_destination_location,
+                self.selected_destination_location,
             )
 
     def on_button_press(self, event):
@@ -682,8 +770,9 @@ class AcaInterface(wx.Panel):
             pub.sendMessage("status_message_update", message="", column=0)
             pub.sendMessage("status_message_update", message="", column=1)
             self.progress_bar.SetValue(0)
-            self.fhs.get_file_list()
-            self.populate_ui_file_list_view()
+            self.capture_source_location()
+            # self.fhs.get_file_list()
+            # self.populate_ui_file_list_view()
 
         ### user selects all items in ui_file_list
         elif button_label == "Select All":
@@ -692,7 +781,7 @@ class AcaInterface(wx.Panel):
 
         ### user clears selected items in ui_file_list
         elif button_label == "Clear Selected":
-            self.selected_itmes.clear()
+            self.selected_items.clear()
             self.ui_file_list.SetItemState(-1, 0, wx.LIST_STATE_SELECTED)
 
         ### user selects generate file checksums
@@ -724,6 +813,7 @@ class AcaInterface(wx.Panel):
                         1  # increment with each item to update the progress bar
                     )
                     file_data = self.fhs.file_data_list[index]
+                    print(file_data)
                     thread_pool_executor.submit(
                         self.on_generate,
                         current_item,
@@ -738,39 +828,47 @@ class AcaInterface(wx.Panel):
         elif button_label == "Copy →":
             logger.info(f"user selected generate: copy: verify")
 
-            ### disable buttons during file operations
-            self.disable_buttons()
+            self.capture_destination_location()
 
-            self.start_time = time.time()
+            # check destination path is valid before proceeding
+            if os.path.exists(self.selected_destination_location):
+                
+                ### disable buttons during file operations
+                self.disable_buttons()
 
-            pub.sendMessage("status_message_update", message="", column=1)
+                self.start_time = time.time()
 
-            self.progress_bar_division = 3
-            self.progress_bar.SetValue(0)
+                pub.sendMessage("status_message_update", message="", column=1)
 
-            if len(self.selected_items) > 0:
-                max_value = len(
-                    self.selected_items
-                )  # set the item range for the progress bar
-                current_item = 0  # set item number variable to update progress bar
-                pub.sendMessage(
-                    "status_message_update",
-                    message=f"Total Progress: 0%  |  0 of {max_value} Files Complete",
-                    column=1,
-                )
+                self.progress_bar_division = 3
+                self.progress_bar.SetValue(0)
 
-                for index in sorted(self.selected_items):
-                    current_item += (
-                        1  # increment with each item to update the progress bar
+                if len(self.selected_items) > 0:
+                    max_value = len(
+                        self.selected_items
+                    )  # set the item range for the progress bar
+                    current_item = 0  # set item number variable to update progress bar
+                    pub.sendMessage(
+                        "status_message_update",
+                        message=f"Total Progress: 0%  |  0 of {max_value} Files Complete",
+                        column=1,
                     )
-                    file_data = self.fhs.file_data_list[index]
-                    thread_pool_executor.submit(
-                        self.on_copy,
-                        current_item,
-                        max_value,
-                        index,
-                        file_data,
-                    )
+
+                    for index in sorted(self.selected_items):
+                        current_item += (
+                            1  # increment with each item to update the progress bar
+                        )
+                        file_data = self.fhs.file_data_list[index]
+                        thread_pool_executor.submit(
+                            self.on_copy,
+                            current_item,
+                            max_value,
+                            index,
+                            file_data,
+                        )
+            else:
+                # exit process if select_destination_location path is not valid
+                pass
 
         ### user selects verify file checksums
         elif button_label == "Verify ↑":
@@ -807,7 +905,7 @@ class AcaInterface(wx.Panel):
                         max_value,
                         index,
                         file_data,
-                        self.get_source_location,
+                        self.selected_source_location,
                     )
         else:
             pass
@@ -1085,7 +1183,13 @@ class ReportInterface(wx.Panel):
                 self.report_list_row_colour(index)
 
     def view_log(self, event):
-        subprocess.run(["open", log_write])
+        ### determine system os ans open the log file in the default application
+        if os.name == "posix":
+            subprocess.run(["open", log_write])
+        elif os.name == "nt":
+            os.startfile(log_write)
+        else:
+            pass
 
     def copy_file_list(self, event):
         list_capture = []

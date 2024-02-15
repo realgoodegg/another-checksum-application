@@ -13,16 +13,19 @@ class FileHashingService:
         self.get_source_location = get_source_location
         self.hash_verified = None
         self.checksum_algorithm = "md5"
-        self.empty_state = "/"
+        self.empty_state = "\u002F" # empty checksum state "/"
 
     # Get the list of files in the source directory
     def get_file_list(self):
         self.file_data_list.clear()
-        files_and_hashes = sorted(glob.glob(f"{self.get_source_location}/*.*"))
+        complete_file_list = sorted(glob.glob(f"{self.get_source_location}/*.*"))
+        filtered_list = [f for f in complete_file_list if not f.startswith('.') and not f.lower().endswith('.ini') and not (os.name == 'nt' and f.startswith('$'))]
+        files_and_hashes = sorted(filtered_list, key=lambda x: os.path.basename(x).lower())
 
         # Get the filename and hash string from the .md5 file if one already exists
         for file_path in files_and_hashes:
             file_base = os.path.basename(file_path)
+            file_mod_date = os.path.getmtime(file_path)
             if os.path.isdir(file_path) or file_path.endswith(".md5"):
                 continue
             elif os.path.exists(f"{file_path}.md5"):
@@ -31,7 +34,7 @@ class FileHashingService:
             else:
                 file_hash = self.empty_state
 
-            file_data = {"filename": file_base, "hash": file_hash}
+            file_data = {"filename": file_base, "hash": file_hash, "mod_date": file_mod_date}
             self.file_data_list.append(file_data)
 
     # Generate checksum hash and write to .md5 file

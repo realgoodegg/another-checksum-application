@@ -19,7 +19,7 @@ class FileHashingService:
     def get_file_list(self):
         self.file_data_list.clear()
         complete_file_list = sorted(glob.glob(f"{self.get_source_location}/*.*"))
-        filtered_list = [f for f in complete_file_list if not f.startswith('.') and not f.lower().endswith('.ini') and not (os.name == 'nt' and f.startswith('$'))]
+        filtered_list = [f for f in complete_file_list if not f.startswith('.') and not f.lower().endswith('.ini') and not (os.name == 'nt' and f.startswith('$'))] # filter out common system and hidden files across os platforms
         files_and_hashes = sorted(filtered_list, key=lambda x: os.path.basename(x).lower())
 
         # Get the filename and hash string from the .md5 file if one already exists

@@ -3,7 +3,7 @@ another checksum application (aca)
 author: Thomas Luke Ruane
 github repo: https://github.com/realgoodegg/another-checksum-application
 version: 1.1.0
-last modified: 2024-02-15
+last modified: 2024-02-18
 
 """
 
@@ -96,9 +96,23 @@ class AcaInterface(wx.Panel):
         self.selected_source_location = os.getcwd()
         self.selected_destination_location = os.getcwd()
         self.column_no = None
+
+        ### UI labels and icons
+        self.set_source_button_label = "Select Source Files"
+        self.set_destination_button_label = "Select Destination "
+        self.refresh_state_button_label = "\u21BB" # refresh button icon "↻"
+        self.select_all_button_label = "Select All"
+        self.clear_selected_button_label = "Clear Selected"
+        self.generate_column_icon = "\u25B3" # generate column icon "△"
+        self.copy_column_icon = "\u25B7" # copy column icon "▷"
+        self.verify_column_icon = "\u25BD" # verify column icon "▽"
+        self.generate_button_label = f"Generate {self.generate_column_icon}"
+        self.copy_button_label = f"Copy {self.copy_column_icon}"
+        self.verify_button_label = f"Verify {self.verify_column_icon}"
         self.pass_status = "  \u2B58" # pass symbol "○"
         self.ignore_status = "  \u002D" # ignore symbol "-"
         self.fail_status = "  \u0058" # fail symbol "X"
+
         self.selected_items = []  # List of selected items in the ui_file_list
         self.progress_bar_division = 1
         self.start_time = None
@@ -117,28 +131,28 @@ class AcaInterface(wx.Panel):
         super().__init__(parent)
 
         ### aca interface elements
-        self.set_source_button = wx.Button(self, label="Select Source Files")
+        self.set_source_button = wx.Button(self, label=self.set_source_button_label)
         self.source_location = wx.TextCtrl(self, style=wx.TE_PROCESS_ENTER)
         self.source_location.Bind(wx.EVT_TEXT_ENTER, self.enter_source)
 
-        self.refresh_state_button = wx.Button(self, label="↻")
+        self.refresh_state_button = wx.Button(self, label=self.refresh_state_button_label)
 
         self.set_source_button.Bind(wx.EVT_BUTTON, self.set_source_directory)
         self.refresh_state_button.Bind(wx.EVT_BUTTON, self.on_button_press)
 
-        self.set_destination_button = wx.Button(self, label="Select Destination ")
+        self.set_destination_button = wx.Button(self, label=self.set_destination_button_label)
         self.destination_location = wx.TextCtrl(self, style=wx.TE_PROCESS_ENTER)
         self.destination_location.Bind(wx.EVT_TEXT_ENTER, self.enter_destination)
 
         self.set_destination_button.Bind(wx.EVT_BUTTON, self.set_destination_location)
 
-        self.select_all_button = wx.Button(self, label="Select All")
-        self.clear_selected_button = wx.Button(self, label="Clear Selected")
+        self.select_all_button = wx.Button(self, label=self.select_all_button_label)
+        self.clear_selected_button = wx.Button(self, label=self.clear_selected_button_label)
 
         self.select_all_button.Bind(wx.EVT_BUTTON, self.on_button_press)
         self.clear_selected_button.Bind(wx.EVT_BUTTON, self.on_button_press)
 
-        self.sort_button = wx.Button(self, -1, "\u21C5", size=(25, 50))
+        self.sort_button = wx.Button(self, -1, "\u21C5", size=(23, 23))
         self.sort_button.Bind(wx.EVT_BUTTON, self.on_sort_click)
 
         ### aca interface central file list
@@ -150,15 +164,12 @@ class AcaInterface(wx.Panel):
 
         self.ui_file_list.InsertColumn(0, "FILE")
         self.ui_file_list.InsertColumn(1, "CHECKSUM")
-        self.ui_file_list.InsertColumn(2, "↓", format=wx.LIST_FORMAT_CENTER)
-        self.ui_file_list.InsertColumn(3, "→", format=wx.LIST_FORMAT_CENTER)
-        self.ui_file_list.InsertColumn(4, "↑", format=wx.LIST_FORMAT_CENTER)
+        self.ui_file_list.InsertColumn(2, self.generate_column_icon, format=wx.LIST_FORMAT_CENTER)
+        self.ui_file_list.InsertColumn(3, self.copy_column_icon, format=wx.LIST_FORMAT_CENTER)
+        self.ui_file_list.InsertColumn(4, self.verify_column_icon, format=wx.LIST_FORMAT_CENTER)
         self.ui_file_list.SetColumnWidth(2, 40)
         self.ui_file_list.SetColumnWidth(3, 40)
         self.ui_file_list.SetColumnWidth(4, 40)
-
-        # list_font = wx.Font(wx.FontInfo(13).Family(wx.MODERN))
-        # self.ui_file_list.SetFont(list_font) # alternative ui_file_list monospaced font
 
         self.ui_file_list.Bind(wx.EVT_SIZE, self.on_size)
         self.ui_file_list.Bind(
@@ -169,9 +180,9 @@ class AcaInterface(wx.Panel):
         )
 
         ### aca file opration buttons
-        self.generate_button = wx.Button(self, label="Generate ↓")
-        self.copy_button = wx.Button(self, label="Copy →")
-        self.verify_button = wx.Button(self, label="Verify ↑")
+        self.generate_button = wx.Button(self, label=self.generate_button_label)
+        self.copy_button = wx.Button(self, label=self.copy_button_label)
+        self.verify_button = wx.Button(self, label=self.verify_button_label)
 
         self.generate_button.Bind(wx.EVT_BUTTON, self.on_button_press)
         self.copy_button.Bind(wx.EVT_BUTTON, self.on_button_press)
@@ -220,7 +231,7 @@ class AcaInterface(wx.Panel):
             self.destination_layout, 0, wx.ALL | wx.EXPAND, 8
         )
         self.source_destination_stack.Add(
-            self.selection_layout, 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 60
+            self.selection_layout, 1, wx.LEFT | wx.RIGHT | wx.EXPAND, 60
         )
 
         self.process_buttons = wx.BoxSizer(wx.HORIZONTAL)
@@ -764,28 +775,26 @@ class AcaInterface(wx.Panel):
         button_label = event.GetEventObject().GetLabel()
 
         ### User refreshes the source location
-        if button_label == "↻":
+        if button_label == self.refresh_state_button_label:
             self.ui_file_list.DeleteAllItems()
             self.selected_items.clear()
             pub.sendMessage("status_message_update", message="", column=0)
             pub.sendMessage("status_message_update", message="", column=1)
             self.progress_bar.SetValue(0)
             self.capture_source_location()
-            # self.fhs.get_file_list()
-            # self.populate_ui_file_list_view()
 
         ### user selects all items in ui_file_list
-        elif button_label == "Select All":
+        elif button_label == self.select_all_button_label:
             for file_index in range(self.ui_file_list.GetItemCount()):
                 self.ui_file_list.Select(file_index)
 
         ### user clears selected items in ui_file_list
-        elif button_label == "Clear Selected":
+        elif button_label == self.clear_selected_button_label:
             self.selected_items.clear()
             self.ui_file_list.SetItemState(-1, 0, wx.LIST_STATE_SELECTED)
 
         ### user selects generate file checksums
-        elif button_label == "Generate ↓":
+        elif button_label == self.generate_button_label:
             logger.info(f"user selected generate")
 
             ### disable buttons during file operations
@@ -825,7 +834,7 @@ class AcaInterface(wx.Panel):
                 pass
 
         ### user selects to generate checksums, copy, verify files
-        elif button_label == "Copy →":
+        elif button_label == self.copy_button_label:
             logger.info(f"user selected generate: copy: verify")
 
             self.capture_destination_location()
@@ -871,7 +880,7 @@ class AcaInterface(wx.Panel):
                 pass
 
         ### user selects verify file checksums
-        elif button_label == "Verify ↑":
+        elif button_label == self.verify_button_label:
             logger.info(f"user selected verify")
 
             ### disable buttons during file operations

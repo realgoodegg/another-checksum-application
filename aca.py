@@ -2,8 +2,8 @@
 another checksum application (aca)
 author: Thomas Luke Ruane
 github repo: https://github.com/realgoodegg/another-checksum-application
-version: 1.1.0
-last modified: 2024-02-18
+version: 1.1.1
+last modified: 2024-02-19
 
 """
 
@@ -152,7 +152,7 @@ class AcaInterface(wx.Panel):
         self.select_all_button.Bind(wx.EVT_BUTTON, self.on_button_press)
         self.clear_selected_button.Bind(wx.EVT_BUTTON, self.on_button_press)
 
-        self.sort_button = wx.Button(self, -1, "\u21C5", size=(23, 23))
+        self.sort_button = wx.Button(self, -1, "\u21C5", size=(30, 40))
         self.sort_button.Bind(wx.EVT_BUTTON, self.on_sort_click)
 
         ### aca interface central file list
@@ -616,7 +616,6 @@ class AcaInterface(wx.Panel):
     ### run filehashingservice to generate file checksums
     def on_generate(self, current_item, max_value, file_index, file_data):
         self.column_no = 2
-        print(file_data)
         if file_data["hash"] == self.fhs.empty_state:
             self.fhs.generate_hash(file_data)
             wx.CallAfter(self.insert_list_view, file_index, file_data)
@@ -822,7 +821,6 @@ class AcaInterface(wx.Panel):
                         1  # increment with each item to update the progress bar
                     )
                     file_data = self.fhs.file_data_list[index]
-                    print(file_data)
                     thread_pool_executor.submit(
                         self.on_generate,
                         current_item,
